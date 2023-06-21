@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from linsolver.simplex import algo, TOL
+from linsolver.simplex import solve, TOL, LinearProgram
 
 
 def test_program_1():
@@ -13,7 +13,7 @@ def test_program_1():
     b = np.array([6, 5], dtype=float)
     c = np.array([1, 2], dtype=float)
 
-    value, X = algo(A, b, c)
+    value, X = solve(LinearProgram(A, b, c, {}))
     X_true = [0.81818182, 1.72727273]
     assert value == pytest.approx(4.27272727, TOL)
     for x, xt in zip(X, X_true):
@@ -29,9 +29,7 @@ def test_program_2():
     b = np.array([10, 15], dtype=float)
     c = np.array([-20, -30, -40], dtype=float)
 
-    algo(A, b, c)
-
-    value, X = algo(A, b, c)
+    value, X = solve(LinearProgram(A, b, c, {}))
     X_true = [1, 0, 7]
     assert value == pytest.approx(-300, TOL)
     for x, xt in zip(X, X_true):

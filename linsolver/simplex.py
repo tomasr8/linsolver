@@ -1,11 +1,28 @@
 import math
 import numpy as np
 from textwrap import indent
+from dataclasses import dataclass
 
 
 class LinearProgram:
-    def __init__(self, M):
-        self.M = M
+    def __init__(self, A, b, c, pivots: dict[int, int]):
+        # self.A = A
+        # self.b = b
+        # self.c = c
+
+        # print(np.atleast_2d(c).shape)
+        # print(np.atleast_2d(0).shape)
+        # print(np.atleast_2d(A).shape)
+        # print(np.atleast_2d(b).T.shape)
+
+        self.M = np.block([
+            [np.atleast_2d(c), np.atleast_2d(0)],
+            [A, np.atleast_2d(b).T]
+        ])
+        self.n_vars = A.shape[1]
+        # self.n = self.n_vars
+        self.n_constraints = A.shape[0]
+        self.pivots = pivots
 
     @property
     def A(self):
@@ -21,7 +38,136 @@ class LinearProgram:
 
     @property
     def value(self):
-        return self.M[0, -1]
+        return -self.M[0, -1]
+    
+    # @property
+    # def is_degenerate(self):
+    #     return any(column >= self.nvars for j in J)
+    
+    def __str__(self):
+        return f"{self.M}\n{self.pivots}"
+
+
+def zero_out_cj(program, column):
+    row = program.pivots[column]
+    cj = program.c[column]
+    if cj == 0:
+        return
+    program.M[0] -= cj*program.M[row]
+
+
+def do_pivot(program, pivot):
+    row, column = pivot
+    program.M[row] /= program.M[row, column]
+
+    for i in range(1, program.n_constraints+1):
+        if i == row:
+            continue
+        program.M[i] -= program.M[i, column]*program.M[row]
+
+
+def find_pivot(program):
+    for j in range(program.n_vars):
+        if j in program.pivots:
+            continue
+        # print("J", j)
+        if program.c[j] < 0:
+            # print("HERE")
+            min_value = math.inf
+            min_i = None
+            for i in range(1, program.n_constraints + 1):
+                frac = program.M[i, -1]/program.M[i, j]
+                if program.M[i, j] > 0 and frac < min_value:
+                    min_value = frac
+                    min_i = i
+            if min_i is not None:
+                return min_i, j
+    return None
+
+
+def get_solution(program):
+    n = program.n_vars
+    solution = np.zeros(n, dtype=float)
+    for j in range(n):
+        if j in program.pivots:
+            row = program.pivots[j]
+            solution[j] = program.b[row-1]
+    return solution
+
+
+def run_simplex(program):
+    print("in simplex")
+    while (pivot := find_pivot(program)) is not None:
+        print("[1st phase] pivot", pivot, 'old', get_column(program.pivots, pivot[0]))
+        old_pivot = get_column(program.pivots, pivot[0])
+        do_pivot(program, pivot)
+        del program.pivots[old_pivot]
+        program.pivots[pivot[1]] = pivot[0]
+        print("after pivot")
+        print(program.M)
+        zero_out_cj(program, pivot[1])
+        print("after zer out")
+        print(program.M)
+
+    if np.all(program.M[0, :-1] >= 0):
+        return
+    else:
+        raise Exception("Unlimited")
+
+
+def solve(program):
+    aux_program = aux_problem(program)
+
+    print("AUX")
+    print(aux_program.M)
+    print(aux_program.c)
+
+    run_simplex(aux_program)
+
+
+    print("MMM")
+    print(aux_program.M)
+
+    if aux_program.value > 0:
+        print(aux_program.value)
+        raise Exception("Infeasible")
+
+    print("PIVOTS", aux_program.pivots)
+
+    if any(j >= program.n_vars for j in aux_program.pivots):
+        raise Exception("Degenerate solution")
+
+    A = aux_program.A[:, :program.n_vars]
+    b = np.copy(aux_program.b)
+    c = np.copy(program.c)
+    pivots = aux_program.pivots
+    new_prog = LinearProgram(A, b, c, pivots)
+
+    for column in pivots:
+        if new_prog.c[column] != 0:
+            zero_out_cj(new_prog, column)
+
+    run_simplex(new_prog)
+    print('[finished]', new_prog.value)
+    print(new_prog.M)
+    return new_prog.value, get_solution(new_prog)
+
+
+def aux_problem(program):
+    m = program.n_constraints
+    A = np.copy(np.c_[program.A, np.eye(m)])
+    b = np.copy(program.b)
+    c = np.concatenate((np.zeros(program.n_vars), np.ones(m)))
+    pivots = {program.n_vars+i: i+1 for i in range(m)}
+    print("pivots", pivots)
+    aux_program = LinearProgram(A, b, c, pivots)
+    for j in range(program.n_vars, program.n_vars+m):
+        print("zero out")
+        print(aux_program.M)
+        zero_out_cj(aux_program, j)
+    print("final")
+    print(aux_program.M)
+    return aux_program
 
 
 TOL = 1e-5
@@ -29,20 +175,6 @@ TOL = 1e-5
 
 def equal(a, b, tol=TOL):
     return math.abs(a-b) <= tol
-
-
-def aux_problem(A, b, c):
-    M, N = A.shape
-    A = np.c_[A, np.eye(M)]
-    c = np.concatenate((np.zeros(N), np.ones(M)))
-
-    AA = np.zeros((M+1, M+N+1))
-    AA[1:, :-1] = A
-    AA[0, :-1] = c
-    AA[1:, -1] = b
-    for i in range(M):
-        zero_out_cj(AA, (i+1, N+i))
-    return AA, set(range(N, N+M))
 
 
 def canonicalize(A, b, c, t, m):
@@ -84,130 +216,15 @@ def canonicalize(A, b, c, t, m):
     return AA, b, c, t, 'min'
 
 
-def zero_out_cj(M, pivot):
-    i, j = pivot
-    if M[0, j] == 0:
-        return
+def get_column(pivots, row):
+    for column in pivots:
+        if pivots[column] == row:
+            return column
 
-    f = -M[0, j]
-    for jj in range(len(M[0])):
-        M[0, jj] += f*M[i, jj]
-
-
-def do_pivot(M, pivot):
-    pi, pj = pivot
-    M[pi] /= M[pi, pj]
-    # print("  div")
-    # print(indent(str(M), "  "))
-    # print("==")
-
-    for i in range(len(M)):
-        if i == pi:
-            continue
-        M[i] -= M[i, pj]*M[pi]
-        # print(indent(str(M), "  "))
-
-
-def find_pivot(M, J):
-    for j in range(len(M[0]) - 1):
-        if j in J:
-            continue
-        if M[0, j] < 0:
-            m = math.inf
-            mi = None
-            for i in range(1, len(M)):
-                if M[i, j] > 0 and M[i, -1]/M[i, j] < m:
-                    m = M[i, -1]/M[i, j]
-                    mi = i
-            if mi is not None:
-                return mi, j
-    return None
-
-
-def get_old(M, J, pivot):
-    for j in J:
-        if M[pivot[0], j] == 1:
-            return j
-
-
-def basic_algo(M, J, it=100):
-    while (pivot := find_pivot(M, J)) is not None:
-        print("[1st phase] pivot", pivot, 'old', get_old(M, J, pivot))
-        old_pivot = get_old(M, J, pivot)
-        do_pivot(M, pivot)
-        J.remove(old_pivot)
-        J.add(pivot[1])
-        zero_out_cj(M, pivot)
-
-        print(M)
-        it -= 1
-        if it == 0:
-            raise Exception("max iters")
-
-    if np.all(M[0, :-1] >= 0):
-        return -M[0, -1], M, J
-    else:
-        return "Unlimited", None, None
-
-
-def algo(A, b, c):
-    M, J = aux_problem(A, b, c)
-    print("aux problem")
-    print(M)
-    print(J)
-    value, M, J = basic_algo(M, J)
-
-    print("1st phase", value)
-    print(M)
-    print(J)
-
-
-    if value > 0:
-        print(value)
-        return "Infeasible"
-
-    m, n = A.shape
-    if any(j >= n for j in J):
-        raise Exception("Degenerate solution")
-
-    MM = np.zeros((A.shape[0]+1, A.shape[1]+1), dtype=float)
-    MM[0, :-1] = c
-    MM[:, -1] = M[:, -1]
-    MM[1:, :-1] = M[1:, :A.shape[1]]
-
-
-    for j in J:
-        if MM[0, j] != 0:
-            i = find_one(MM[1:, j])
-            zero_out_cj(MM, (i+1, j))
-    print("[2nd phase]")
-    print(MM)
-    # raise Exception("starting 2nd phase")
-    value, M, J = basic_algo(MM, J, it=4)
-    print('[finished]', value)
-    print(M)
-    return value, get_solution(M, J)
-
-
-def is_base(v):
-    return (v == 1).sum() == 1 and (v == 0).sum() == len(v) - 1
-
-
-def find_one(v):
-    for i in range(len(v)):
-        if v[i] == 1:
-            return i
-
-
-def get_solution(M, J):
-    solution = []
-    for j in range(M.shape[1] - 1):
-        if j not in J:
-            solution.append(0)
-        else:
-            i = find_one(M[1:, j])
-            solution.append(M[i+1, -1])
-    return solution
+# def find_one(v):
+#     for i in range(len(v)):
+#         if v[i] == 1:
+#             return i
 
 
 # A = np.array([

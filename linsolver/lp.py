@@ -148,11 +148,19 @@ class Eq(Comparison):
 
 
 class LinearProgram:
-    def __init__(self, objective, constraints):
+    MIN = 'min'
+    MAX = 'max'
+
+    def __init__(self, type, objective, constraints):
+        self.type = type
         self.objective = objective
         self.constraints = constraints
 
-    def 
+    def compile(self):
+        ...
+
+    def _get_variables(self):
+        variables = set()
 
 
 # X + (Y*2 - 4) + X = 23
