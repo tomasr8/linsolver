@@ -6,21 +6,11 @@ from dataclasses import dataclass
 
 class LinearProgram:
     def __init__(self, A, b, c, pivots: dict[int, int]):
-        # self.A = A
-        # self.b = b
-        # self.c = c
-
-        # print(np.atleast_2d(c).shape)
-        # print(np.atleast_2d(0).shape)
-        # print(np.atleast_2d(A).shape)
-        # print(np.atleast_2d(b).T.shape)
-
         self.M = np.block([
             [np.atleast_2d(c), np.atleast_2d(0)],
             [A, np.atleast_2d(b).T]
         ])
         self.n_vars = A.shape[1]
-        # self.n = self.n_vars
         self.n_constraints = A.shape[0]
         self.pivots = pivots
 
@@ -39,11 +29,7 @@ class LinearProgram:
     @property
     def value(self):
         return -self.M[0, -1]
-    
-    # @property
-    # def is_degenerate(self):
-    #     return any(column >= self.nvars for j in J)
-    
+
     def __str__(self):
         return f"{self.M}\n{self.pivots}"
 
@@ -177,43 +163,42 @@ def equal(a, b, tol=TOL):
     return math.abs(a-b) <= tol
 
 
-def canonicalize(A, b, c, t, m):
-    if m == 'max':
+def canonicalize(type, A, b, c, constraint_types):
+    if type == 'max':
         c *= -1
 
-    AA = np.copy(A)
+    # convert <= to >=
+    sel = constraint_types == -1
+    b[sel] *= -1
+    A[sel] *= -1
+    constraint_types[sel] = 1
 
-    for i in range(len(A)):
-        if t[i] == 'eq' or t[i] == 'gt':
-            continue
-        if t[i] == 'lt':
-            A[i] *= -1
-            b[i] *= -1
-            t[i] = 'gt'
+    # convert >= to ==
+    sel = constraint_types == 1
+    n = np.sum(sel)
 
-    for j in range(len(c)):
-        AA = np.r_[AA, np.zeros(len(c))]
-        b = np.c_[b, 0]
-        AA[-1, j] = 1
-        AA[-1, -2] = -1
-        AA[-1, -1] = 1
-        c = np.c_[c, 0, 0]
+    if n > 0:
+        print(A, np.zeros(A.shape[0], n))
+        A = np.hstack((A, np.zeros((A.shape[0], n))))
+        c = np.hstack((c, np.zeros(n)))
+        A[sel, -n:] = -np.eye(n)
+        constraint_types[sel] = 0
 
-    for i in range(len(A)):
-        if t[i] == 'eq':
-            continue
-        if t[i] == 'gt':
-            AA = np.c_[AA, np.zeros(len(AA))]
-            AA[i, -1] = -1
-            c = np.c_[c, 0]
-            b = np.c_[b, 0]
+    # TODO: variable bounds
+    # for j in range(A.shape[1]):
+    #     AA = np.r_[AA, np.zeros(A.shape[1])]
+    #     b = np.c_[b, 0]
+    #     AA[-1, j] = 1
+    #     AA[-1, -2] = -1
+    #     AA[-1, -1] = 1
+    #     c = np.c_[c, 0, 0]
 
-    for i in range(len(b)):
-        if b < 0:
-            b *= -1
-            AA[i] *= -1
+    # convert -b to b
+    sel = b < 0
+    b[sel] *= -1
+    A[sel] *= -1
 
-    return AA, b, c, t, 'min'
+    return A, b, c
 
 
 def get_column(pivots, row):
