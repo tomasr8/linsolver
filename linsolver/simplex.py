@@ -1,18 +1,55 @@
 import math
+
 import numpy as np
-from textwrap import indent
-from dataclasses import dataclass
+
+
+class Pivots:
+    def __init__(self, cr):
+        self.cr = cr
+        self.rc = {cr[c]: c for c in cr}
+
+    def get(self, *, row=None, column=None):
+        if row is not None:
+            return self.rc[row]
+        else:
+            return self.cr[column]
+
+    def set(self, *, row, column):
+        self.rc[row] = column
+        self.cr[column] = row
+
+    def has(self, *, row=None, column=None):
+        if row is not None:
+            return row in self.rc
+        else:
+            return column in self.cr
+
+    def delete(self, *, row=None, column=None):
+        if row is not None:
+            column = self.rc[row]
+            del self.rc[row]
+            del self.cr[column]
+        else:
+            row = self.cr[column]
+            del self.rc[row]
+            del self.cr[column]
 
 
 class LinearProgram:
-    def __init__(self, A, b, c, pivots: dict[int, int]):
+    def __init__(self, A, b, c, pivots: dict[int, int] | Pivots):
         self.M = np.block([
             [np.atleast_2d(c), np.atleast_2d(0)],
             [A, np.atleast_2d(b).T]
         ])
-        self.n_vars = A.shape[1]
-        self.n_constraints = A.shape[0]
-        self.pivots = pivots
+        self.pivots = pivots if isinstance(pivots, Pivots) else Pivots(pivots)
+
+    @property
+    def n_vars(self):
+        return self.A.shape[1]
+
+    @property
+    def n_constraints(self):
+        return self.A.shape[0]
 
     @property
     def A(self):
@@ -35,7 +72,7 @@ class LinearProgram:
 
 
 def zero_out_cj(program, column):
-    row = program.pivots[column]
+    row = program.pivots.get(column=column)
     cj = program.c[column]
     if cj == 0:
         return
@@ -54,14 +91,14 @@ def do_pivot(program, pivot):
 
 def find_pivot(program):
     for j in range(program.n_vars):
-        if j in program.pivots:
+        if program.pivots.has(column=j):
             continue
-        # print("J", j)
         if program.c[j] < 0:
-            # print("HERE")
             min_value = math.inf
             min_i = None
             for i in range(1, program.n_constraints + 1):
+                if program.M[i, j] == 0:
+                    continue
                 frac = program.M[i, -1]/program.M[i, j]
                 if program.M[i, j] > 0 and frac < min_value:
                     min_value = frac
@@ -75,8 +112,8 @@ def get_solution(program):
     n = program.n_vars
     solution = np.zeros(n, dtype=float)
     for j in range(n):
-        if j in program.pivots:
-            row = program.pivots[j]
+        if program.pivots.has(column=j):
+            row = program.pivots.get(column=j)
             solution[j] = program.b[row-1]
     return solution
 
@@ -84,44 +121,61 @@ def get_solution(program):
 def run_simplex(program):
     print("in simplex")
     while (pivot := find_pivot(program)) is not None:
-        print("[1st phase] pivot", pivot, 'old', get_column(program.pivots, pivot[0]))
-        old_pivot = get_column(program.pivots, pivot[0])
+        old_pivot = program.pivots.get(row=pivot[0])
         do_pivot(program, pivot)
-        del program.pivots[old_pivot]
-        program.pivots[pivot[1]] = pivot[0]
-        print("after pivot")
-        print(program.M)
+        program.pivots.delete(column=old_pivot)
+        program.pivots.set(row=pivot[0], column=pivot[1])
         zero_out_cj(program, pivot[1])
-        print("after zer out")
-        print(program.M)
 
     if np.all(program.M[0, :-1] >= 0):
         return
     else:
-        raise Exception("Unlimited")
+        raise Exception("Unbounded")
 
 
 def solve(program):
     aux_program = aux_problem(program)
-
-    print("AUX")
-    print(aux_program.M)
-    print(aux_program.c)
-
     run_simplex(aux_program)
 
-
-    print("MMM")
-    print(aux_program.M)
-
-    if aux_program.value > 0:
+    if not is_zero(aux_program.value):
         print(aux_program.value)
         raise Exception("Infeasible")
 
-    print("PIVOTS", aux_program.pivots)
+    if any(j >= program.n_vars for j in aux_program.pivots.cr):
+        zeros = np.isclose(aux_program.A[:, :program.n_vars], 0)
+        sel = np.all(zeros, axis=1)
+        sel = np.concatenate(([False], sel))
 
-    if any(j >= program.n_vars for j in aux_program.pivots):
-        raise Exception("Degenerate solution")
+        if np.any(sel):
+            print("LINEARLY DEPENDENT COLUMNS")
+            aux_program.M = aux_program.M[~sel]
+            print(aux_program.M)
+            for i, s in enumerate(sel):
+                if s:
+                    col = aux_program.pivots.get(row=i)
+                    aux_program.pivots.delete(column=col)
+            print(aux_program.pivots)
+        else:
+            print("DEGENARETE SOLUTION")
+            pivots = []
+            for col in aux_program.pivots.cr:
+                if col >= program.n_vars:
+                    pivots.append((aux_program.pivots.get(column=col), col))
+            print("NON BASIS PIVOTS", pivots)
+
+            for p in pivots:
+                row, col = p
+                for candidate_col in range(program.n_vars):
+                    if candidate_col in aux_program.pivots.cr:
+                        continue
+                    if is_zero(aux_program.M[row, candidate_col]):
+                        continue
+                    do_pivot(aux_program, (row, candidate_col))
+                    aux_program.pivots.delete(column=col)
+                    aux_program.pivots.set(row=row, column=candidate_col)
+                    print("CHANGED PIVOT", (row, col), (row, candidate_col))
+                    print(aux_program.M)
+                    break
 
     A = aux_program.A[:, :program.n_vars]
     b = np.copy(aux_program.b)
@@ -129,7 +183,7 @@ def solve(program):
     pivots = aux_program.pivots
     new_prog = LinearProgram(A, b, c, pivots)
 
-    for column in pivots:
+    for column in pivots.cr:
         if new_prog.c[column] != 0:
             zero_out_cj(new_prog, column)
 
@@ -145,6 +199,8 @@ def aux_problem(program):
     b = np.copy(program.b)
     c = np.concatenate((np.zeros(program.n_vars), np.ones(m)))
     pivots = {program.n_vars+i: i+1 for i in range(m)}
+    # pivots = Pivots({i+1: program.n_vars+i for i in range(m)})
+
     print("pivots", pivots)
     aux_program = LinearProgram(A, b, c, pivots)
     for j in range(program.n_vars, program.n_vars+m):
@@ -160,7 +216,11 @@ TOL = 1e-5
 
 
 def equal(a, b, tol=TOL):
-    return math.abs(a-b) <= tol
+    return abs(a-b) <= tol
+
+
+def is_zero(v):
+    return equal(v, 0)
 
 
 def canonicalize(type, A, b, c, constraint_types):
@@ -199,36 +259,3 @@ def canonicalize(type, A, b, c, constraint_types):
     A[sel] *= -1
 
     return A, b, c
-
-
-def get_column(pivots, row):
-    for column in pivots:
-        if pivots[column] == row:
-            return column
-
-# def find_one(v):
-#     for i in range(len(v)):
-#         if v[i] == 1:
-#             return i
-
-
-# A = np.array([
-#     [3, 2, 1],
-#     [1, 2, 2],
-# ], dtype=float)
-
-# b = np.array([10, 15], dtype=float)
-# c = np.array([-20, -30, -40], dtype=float)
-
-# algo(A, b, c)
-
-
-# A = np.array([
-#     [1, 3],
-#     [4, 1],
-# ], dtype=float)
-
-# b = np.array([6, 5], dtype=float)
-# c = np.array([1, 2], dtype=float)
-
-# algo(A, b, c)

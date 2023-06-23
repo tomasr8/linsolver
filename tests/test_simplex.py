@@ -1,8 +1,9 @@
-import pytest
 import numpy as np
+import pytest
 from numpy.testing import assert_array_equal
 
-from linsolver.simplex import solve, TOL, LinearProgram, canonicalize, zero_out_cj
+from linsolver.simplex import (TOL, LinearProgram, canonicalize, solve,
+                               zero_out_cj, do_pivot, get_solution, find_pivot)
 
 
 def test_zero_out_cj_1():
@@ -34,6 +35,92 @@ def test_zero_out_cj_2():
         [1, 0, 1],
         [0, 1, 1],
     ]))
+
+
+def test_do_pivot_1():
+    A = np.array([
+        [1, 0],
+        [0, 1]
+    ], dtype=float)
+    b = [3, 5]
+    c = [1, 1]
+    program = LinearProgram(A, b, c, {})
+    do_pivot(program, (1, 0))
+
+    assert_array_equal(program.M, np.array([
+        [1, 1, 0],
+        [1, 0, 3],
+        [0, 1, 5],
+    ]))
+
+
+def test_do_pivot_2():
+    A = np.array([
+        [12, 3],
+        [0, 2]
+    ], dtype=float)
+    b = [3, 5]
+    c = [1, 1]
+    program = LinearProgram(A, b, c, {})
+    do_pivot(program, (1, 1))
+
+    assert_array_equal(program.M, np.array([
+        [1, 1, 0],
+        [4, 1, 1],
+        [-8, 0, 3],
+    ]))
+
+
+def test_find_pivot_no_pivot_cj_positive():
+    A = np.array([
+        [1, 0, 2],
+        [0, 1, 7]
+    ], dtype=float)
+    b = [3, 5]
+    c = [1, 1, 1]
+    program = LinearProgram(A, b, c, {})
+    pivot = find_pivot(program)
+    assert pivot is None
+
+
+def test_find_pivot_no_pivot_negative_column():
+    A = np.array([
+        [1, 0, -2],
+        [0, 1, -7]
+    ], dtype=float)
+    b = [3, 5]
+    c = [1, 1, -3]
+    program = LinearProgram(A, b, c, {})
+    pivot = find_pivot(program)
+    assert pivot is None
+
+
+def test_find_pivot():
+    A = np.array([
+        [1, 0, 2],
+        [0, 1, 7]
+    ], dtype=float)
+    b = [3, 5]
+    c = [1, 1, -2]
+    program = LinearProgram(A, b, c, {0: 1, 1: 2})
+    pivot = find_pivot(program)
+    assert_array_equal(pivot, [2, 2])
+
+
+def test_get_solution_1():
+    A = np.array([
+        [1, 0],
+        [0, 1]
+    ], dtype=float)
+    b = [3, 5]
+    c = [1, 1]
+    program = LinearProgram(A, b, c, {0: 1, 1: 2})
+    solution = get_solution(program)
+    assert_array_equal(solution, [3, 5])
+
+    program = LinearProgram(A, b, c, {1: 2, 0: 1})
+    solution = get_solution(program)
+    assert_array_equal(solution, [3, 5])
 
 
 def test_canonicalize_1():

@@ -2,6 +2,9 @@ import itertools
 
 import numpy as np
 
+from linsolver.simplex import LinearProgram as LP
+from linsolver.simplex import canonicalize, solve
+
 
 class Comparable:
     def __eq__(self, other):
@@ -12,6 +15,10 @@ class Comparable:
 
     def __le__(self, other):
         return Lte(self, other)
+    
+
+# class Addition:
+
 
 
 class Variable(Comparable):
@@ -32,6 +39,8 @@ class Variable(Comparable):
         match other:
             case Variable(name=name, coeff=coeff) if name == self.name:
                 return Variable(name=name, coeff=self.coeff+coeff)
+            case int() | float() if other == 0:
+                return self
             case Variable() | int() | float():
                 return Sum(self, other)
             case _:
@@ -87,6 +96,8 @@ def simplify(expr):
             return {expr.name: expr}, 0
         case Sum(exprs=exprs):
             return simplify_sum(exprs)
+        case Comparison():
+            return expr.normalize()
 
 
 class Sum(Comparable):
@@ -100,6 +111,8 @@ class Sum(Comparable):
         match other:
             case Sum(exprs=exprs):
                 return Sum(*self.exprs, *exprs)
+            case int() | float() if other == 0:
+                return self
             case Variable() | int() | float():
                 return Sum(*self.exprs, other)
             case _:
@@ -112,6 +125,8 @@ class Sum(Comparable):
         match other:
             case Sum(exprs=exprs):
                 return Sum(*exprs, *self.exprs)
+            case int() | float() if other == 0:
+                return self
             case Variable() | int() | float():
                 return Sum(other, *self.exprs)
             case _:
@@ -120,7 +135,7 @@ class Sum(Comparable):
     def __repr__(self):
         # out = repr(self.exprs[0])
         # for expr in self.exprs[1:]:
-        #     if 
+        #     if
         exprs = " + ".join(repr(x) for x in self.exprs)
         return f"{exprs}"
 
@@ -137,7 +152,10 @@ class Comparison:
         c = c_right - c_left
         variables = vars_left
         for name in vars_right:
-            variables[name] = variables.get(name, 0) - vars_right[name]
+            if name in variables:
+                variables[name] -= vars_right[name]
+            else:
+                variables[name] = -vars_right[name]
 
         return variables, c
 
@@ -200,22 +218,31 @@ class LinearProgram:
     def _get_variables(self):
         variables = set()
         _vars, _ = simplify(self.objective)
-        variables += set(_vars.keys())
+        variables |= set(_vars.keys())
         for constraint in self.constraints:
             _vars, _ = simplify(constraint)
-            variables += set(_vars.keys())
+            variables |= set(_vars.keys())
         return variables
 
     @classmethod
     def minimize(cls, objective):
         return cls(LinearProgram.MIN, objective, [])
 
+    @classmethod
+    def maximize(cls, objective):
+        return cls(LinearProgram.MAX, objective, [])
+
     def such_that(self, *constraints):
         self.constraints = constraints
         return self
 
     def optimize(self):
-        ...
+        all_vars = sorted(list(self._get_variables()))
+        A, b, c = canonicalize(*self.as_matrix())
+        value, variables = solve(LP(A, b, c, {}))
+        value = value if self.type == LinearProgram.MIN else -value
+        variables = variables[:len(all_vars)]
+        return value, ({all_vars[i]: v for i, v in enumerate(variables)})
 
     def __str__(self):
         constraints = "\n".join((f"  {constraint}" for constraint in self.constraints))
@@ -224,8 +251,8 @@ class LinearProgram:
 
 # X + (Y*2 - 4) + X = 23
 
-X = Variable("X")
-Y = Variable("Y")
+# X = Variable("X")
+# Y = Variable("Y")
 
 # print(X)
 # print(Y*2 - 4)
@@ -251,5 +278,6 @@ Y = Variable("Y")
 # print(eq.normalize())
 
 
-program = LinearProgram.minimize(2*X + Y).such_that(X - Y >= 2, X + Y == 3)
-print(program)
+# program = LinearProgram.minimize(2*X + Y).such_that(X - Y >= 2, X + Y == 3)
+# print(program)
+# print(program.optimize())

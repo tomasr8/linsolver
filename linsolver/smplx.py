@@ -1,6 +1,7 @@
 import math
-import numpy as np
 from textwrap import indent
+
+import numpy as np
 
 
 class LinearProgram:
