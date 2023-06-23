@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from linsolver.simplex import (TOL, LinearProgram, canonicalize, solve,
-                               zero_out_cj, do_pivot, get_solution, find_pivot)
+from pivotal.simplex import (TOL, LinearProgram, canonicalize, do_pivot,
+                             find_pivot, get_solution, solve, zero_out_cj)
 
 
 def test_zero_out_cj_1():

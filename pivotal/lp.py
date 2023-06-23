@@ -2,8 +2,86 @@ import itertools
 
 import numpy as np
 
-from linsolver.simplex import LinearProgram as LP
-from linsolver.simplex import canonicalize, solve
+from pivotal.simplex import LinearProgram as LP
+from pivotal.simplex import canonicalize, solve
+
+
+class Unbounded(Exception):
+    pass
+
+
+class Infeasible(Exception):
+    pass
+
+
+class InvalidConstraint(Exception):
+    pass
+
+
+class IncompatibleAbs(Exception):
+    pass
+
+
+class Abs:
+    def __init__(self, arg, sign=1):
+        self.arg = arg
+        self.sign = sign
+
+    def __abs__(self):
+        return Abs(self.arg)
+
+    def __neg__(self):
+        return Abs(self.arg, -self.sign)
+
+    def __add__(self, other):
+        match other:
+            case Abs():
+                return Sum(self, other)
+            case Sum(elts=elts):
+                return Sum(self, *elts)
+            case int() | float():
+                if other == 0:
+                    return self
+                return Sum(self, other)
+            case Variable() | int() | float():
+                return Sum(self, other)
+            case _:
+                return NotImplemented
+
+    def __sub__(self, other):
+        return self.__add__(-other)
+
+    def __radd__(self, other):
+        match other:
+            case int() | float():
+                if other == 0:
+                    return self
+                return Sum(other, self)
+            case _:
+                return NotImplemented
+
+    def __rsub__(self, other):
+        return -self.__radd__(other)
+
+    def __mul__(self, other):
+        match other:
+            case int() | float():
+                if other == 1:
+                    return self
+                elif other == 0:
+                    return 0
+                elif other > 0:
+                    return Abs(other*self.arg)
+                else:
+                    return Abs(abs(other)*self.arg, sign=-1)
+            case _:
+                return NotImplemented
+
+    __rmul__ = __mul__
+
+    def __str__(self):
+        sign = "-" if self.sign == -1 else ""
+        return f"{sign}|{self.arg}|"
 
 
 class Comparable:
@@ -15,16 +93,12 @@ class Comparable:
 
     def __le__(self, other):
         return Lte(self, other)
-    
-
-# class Addition:
-
 
 
 class Variable(Comparable):
     id_iter = itertools.count()
 
-    def __init__(self, name=None, coeff=1, lower_bound=0):
+    def __init__(self, name=None, coeff=1, lb=0, ub=0):
         if name is None:
             id = next(self.id_iter)
             self.name = f"_{id}"
@@ -32,33 +106,52 @@ class Variable(Comparable):
             self.name = name
         self.coeff = coeff
 
+    def __abs__(self):
+        return Abs(self)
+
     def __neg__(self):
         return Variable(name=self.name, coeff=-self.coeff)
 
     def __add__(self, other):
         match other:
             case Variable(name=name, coeff=coeff) if name == self.name:
+                if self.coeff+coeff == 0:
+                    return 0
                 return Variable(name=name, coeff=self.coeff+coeff)
             case int() | float() if other == 0:
                 return self
-            case Variable() | int() | float():
+            case Variable() | Abs() | int() | float():
                 return Sum(self, other)
+            case Sum(elts=elts):
+                return Sum(self, *elts)
             case _:
                 return NotImplemented
 
-    __radd__ = __add__
+    def __radd__(self, other):
+        match other:
+            case int() | float():
+                if other == 0:
+                    return self
+                return Sum(other, self)
+            case _:
+                return NotImplemented
 
     def __sub__(self, other):
         return self.__add__(-other)
 
-    __rsub__ = __sub__
+    def __rsub__(self, other):
+        return -self.__radd__(other)
 
     def __mul__(self, other):
         match other:
             case int() | float():
+                if other == 0:
+                    return 0
+                elif other == 1:
+                    return self
                 return Variable(self.name, coeff=self.coeff * other)
             case _:
-                raise TypeError("Can only multiply by a number")
+                return NotImplemented
 
     __rmul__ = __mul__
 
@@ -71,10 +164,10 @@ class Variable(Comparable):
             return f"{self.coeff}*{self.name}"
 
 
-def simplify_sum(exprs):
+def simplify_sum(elts):
     c = 0
     variables = {}
-    for expr in exprs:
+    for expr in elts:
         match expr:
             case int() | float():
                 c += expr
@@ -94,27 +187,30 @@ def simplify(expr):
             return {}, expr
         case Variable():
             return {expr.name: expr}, 0
-        case Sum(exprs=exprs):
-            return simplify_sum(exprs)
+        case Sum(elts=elts):
+            return simplify_sum(elts)
         case Comparison():
             return expr.normalize()
 
 
 class Sum(Comparable):
-    def __init__(self, *exprs):
-        self.exprs = exprs
+    def __init__(self, *elts):
+        self.elts = elts
+
+    def __abs__(self):
+        return Abs(self)
 
     def __neg__(self):
-        return Sum(*(-expr for expr in self.exprs))
+        return Sum(*(-expr for expr in self.elts))
 
     def __add__(self, other):
         match other:
-            case Sum(exprs=exprs):
-                return Sum(*self.exprs, *exprs)
+            case Sum(elts=elts):
+                return Sum(*self.elts, *elts)
             case int() | float() if other == 0:
                 return self
-            case Variable() | int() | float():
-                return Sum(*self.exprs, other)
+            case Variable() | Abs() | int() | float():
+                return Sum(*self.elts, other)
             case _:
                 return NotImplemented
 
@@ -123,21 +219,35 @@ class Sum(Comparable):
 
     def __radd__(self, other):
         match other:
-            case Sum(exprs=exprs):
-                return Sum(*exprs, *self.exprs)
             case int() | float() if other == 0:
-                return self
-            case Variable() | int() | float():
-                return Sum(other, *self.exprs)
+                if other == 0:
+                    return self
+                return Sum(other, *self.elts)
             case _:
                 return NotImplemented
 
+    def __rsub__(self, other):
+        return -self.__radd__(other)
+
+    def __mul__(self, other):
+        match other:
+            case int() | float():
+                if other == 0:
+                    return 0
+                elif other == 1:
+                    return self
+                return Sum(*(other*elt for elt in self.elts))
+            case _:
+                return NotImplemented
+
+    __rmul__ = __mul__
+
     def __repr__(self):
-        # out = repr(self.exprs[0])
-        # for expr in self.exprs[1:]:
+        # out = repr(self.elts[0])
+        # for expr in self.elts[1:]:
         #     if
-        exprs = " + ".join(repr(x) for x in self.exprs)
-        return f"{exprs}"
+        elts = " + ".join(repr(x) for x in self.elts)
+        return f"{elts}"
 
 
 class Comparison:
@@ -190,6 +300,26 @@ class LinearProgram:
         self.type = type
         self.objective = objective
         self.constraints = constraints
+
+    def validate(self):
+        # check for nesting
+        
+        for elt in self.objective:
+            if not isinstance(elt, Abs):
+                continue
+            if self.type == LinearProgram.MIN and elt.sign == -1:
+                raise Exception("Cannot minimize a negative absolute value")
+            if self.type == LinearProgram.MAX and elt.sign == 1:
+                raise Exception("Cannot maximize a positive absolute value")
+
+        for constraint in self.constraints:
+            for elt in self.objective:
+                if not isinstance(elt, Abs):
+                    continue
+                if self.type == LinearProgram.MIN and elt.sign == -1:
+                    raise Exception("Cannot minimize a negative absolute value")
+                if self.type == LinearProgram.MAX and elt.sign == 1:
+                    raise Exception("Cannot maximize a positive absolute value")
 
     def as_matrix(self):
         variables = sorted(list(self._get_variables()))
@@ -249,35 +379,9 @@ class LinearProgram:
         return f"{self.type} {self.objective}\ns.t.\n{constraints}"
 
 
-# X + (Y*2 - 4) + X = 23
-
-# X = Variable("X")
-# Y = Variable("Y")
-
-# print(X)
-# print(Y*2 - 4)
-# print(X + (Y*2 - 4) + X)
-# print(X + -(Y*2 - 4) + X)
-
-# print(simplify(X + -(Y*2 - 4) + X))
-
-# print(X >= 5)
-# print(X == 5)
-# print(X <= 5)
-# print(5 <= X)
-# print(5 == X + Y)
-# print(5 >= X + Y)
+def minimize(objective, constraints):
+    return LinearProgram.minimize(objective).such_that(*constraints).optimize()
 
 
-# eq = ((X + (Y*2 - 4) + X) == 23)
-
-# print(eq.left)
-# print(eq.right)
-
-# print("=====")
-# print(eq.normalize())
-
-
-# program = LinearProgram.minimize(2*X + Y).such_that(X - Y >= 2, X + Y == 3)
-# print(program)
-# print(program.optimize())
+def maximize(objective, constraints):
+    return LinearProgram.maximize(objective).such_that(*constraints).optimize()

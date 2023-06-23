@@ -1,4 +1,7 @@
 import numpy as np
+
+from pivotal.lp import LinearProgram, Variable
+
 np.set_printoptions(precision=1, suppress=True)
 
 # c = np.block([
@@ -8,7 +11,6 @@ np.set_printoptions(precision=1, suppress=True)
 
 # print(c)
 
-from linsolver.lp import LinearProgram, Variable
 
 # X = Variable("X")
 # Y = Variable("Y")
@@ -105,3 +107,13 @@ from linsolver.lp import LinearProgram, Variable
 
 # print(program)
 # print(program.optimize())
+
+x = Variable("x")
+y = Variable("y")
+
+program = LinearProgram.minimize(
+    abs(x) + abs(y)
+).such_that(
+    abs(x) <= 5,
+    abs(y) <= 7
+)

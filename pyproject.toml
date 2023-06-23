@@ -2,8 +2,11 @@
 requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools]
+packages = ["pivotal"]
+
 [project]
-name = "linsolver"
+name = "pivotal"
 authors = [
     {name = "Tomas Roun", email = "tomas.roun8@gmail.com"},
 ]

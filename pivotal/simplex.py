@@ -155,27 +155,27 @@ def solve(program):
                     col = aux_program.pivots.get(row=i)
                     aux_program.pivots.delete(column=col)
             print(aux_program.pivots)
-        else:
-            print("DEGENARETE SOLUTION")
-            pivots = []
-            for col in aux_program.pivots.cr:
-                if col >= program.n_vars:
-                    pivots.append((aux_program.pivots.get(column=col), col))
-            print("NON BASIS PIVOTS", pivots)
+        # else:
+        print("maybe DEGENARETE SOLUTION")
+        pivots = []
+        for col in aux_program.pivots.cr:
+            if col >= program.n_vars:
+                pivots.append((aux_program.pivots.get(column=col), col))
+        print("NON BASIS PIVOTS", pivots)
 
-            for p in pivots:
-                row, col = p
-                for candidate_col in range(program.n_vars):
-                    if candidate_col in aux_program.pivots.cr:
-                        continue
-                    if is_zero(aux_program.M[row, candidate_col]):
-                        continue
-                    do_pivot(aux_program, (row, candidate_col))
-                    aux_program.pivots.delete(column=col)
-                    aux_program.pivots.set(row=row, column=candidate_col)
-                    print("CHANGED PIVOT", (row, col), (row, candidate_col))
-                    print(aux_program.M)
-                    break
+        for p in pivots:
+            row, col = p
+            for candidate_col in range(program.n_vars):
+                if candidate_col in aux_program.pivots.cr:
+                    continue
+                if is_zero(aux_program.M[row, candidate_col]):
+                    continue
+                do_pivot(aux_program, (row, candidate_col))
+                aux_program.pivots.delete(column=col)
+                aux_program.pivots.set(row=row, column=candidate_col)
+                print("CHANGED PIVOT", (row, col), (row, candidate_col))
+                print(aux_program.M)
+                break
 
     A = aux_program.A[:, :program.n_vars]
     b = np.copy(aux_program.b)
