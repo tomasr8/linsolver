@@ -1,4 +1,6 @@
-from pivotal.lp import Variable, minimize, maximize
+from pivotal.api import Variable, minimize, maximize
+from pivotal.errors import Infeasible, Unbounded
 
 
-__all__ = ["Variable", "minimize", "maximize"]
+__version__ = "0.0.1"
+__all__ = ["Variable", "minimize", "maximize", "Infeasible", "Unbounded"]

@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.testing import assert_allclose
 
-from pivotal.lp import LinearProgram, Variable
+from pivotal.api import LinearProgram, Variable
 
 
 def assert_solution_almost_equal(expected, actual):

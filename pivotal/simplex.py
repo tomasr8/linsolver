@@ -2,6 +2,8 @@ import math
 
 import numpy as np
 
+from pivotal.errors import Infeasible, Unbounded
+
 
 class Pivots:
     def __init__(self, cr):
@@ -119,7 +121,6 @@ def get_solution(program):
 
 
 def run_simplex(program):
-    print("in simplex")
     while (pivot := find_pivot(program)) is not None:
         old_pivot = program.pivots.get(row=pivot[0])
         do_pivot(program, pivot)
@@ -130,7 +131,7 @@ def run_simplex(program):
     if np.all(program.M[0, :-1] >= 0):
         return
     else:
-        raise Exception("Unbounded")
+        raise Unbounded("The program is unbounded, try adding more constraints.")
 
 
 def solve(program):
@@ -138,8 +139,7 @@ def solve(program):
     run_simplex(aux_program)
 
     if not is_zero(aux_program.value):
-        print(aux_program.value)
-        raise Exception("Infeasible")
+        raise Infeasible("The program is infeasible, try removing some constraints.")
 
     if any(j >= program.n_vars for j in aux_program.pivots.cr):
         zeros = np.isclose(aux_program.A[:, :program.n_vars], 0)
@@ -147,21 +147,16 @@ def solve(program):
         sel = np.concatenate(([False], sel))
 
         if np.any(sel):
-            print("LINEARLY DEPENDENT COLUMNS")
             aux_program.M = aux_program.M[~sel]
-            print(aux_program.M)
             for i, s in enumerate(sel):
                 if s:
                     col = aux_program.pivots.get(row=i)
                     aux_program.pivots.delete(column=col)
-            print(aux_program.pivots)
-        # else:
-        print("maybe DEGENARETE SOLUTION")
+
         pivots = []
         for col in aux_program.pivots.cr:
             if col >= program.n_vars:
                 pivots.append((aux_program.pivots.get(column=col), col))
-        print("NON BASIS PIVOTS", pivots)
 
         for p in pivots:
             row, col = p
@@ -173,8 +168,6 @@ def solve(program):
                 do_pivot(aux_program, (row, candidate_col))
                 aux_program.pivots.delete(column=col)
                 aux_program.pivots.set(row=row, column=candidate_col)
-                print("CHANGED PIVOT", (row, col), (row, candidate_col))
-                print(aux_program.M)
                 break
 
     A = aux_program.A[:, :program.n_vars]
@@ -188,8 +181,6 @@ def solve(program):
             zero_out_cj(new_prog, column)
 
     run_simplex(new_prog)
-    print('[finished]', new_prog.value)
-    print(new_prog.M)
     return new_prog.value, get_solution(new_prog)
 
 
@@ -199,16 +190,10 @@ def aux_problem(program):
     b = np.copy(program.b)
     c = np.concatenate((np.zeros(program.n_vars), np.ones(m)))
     pivots = {program.n_vars+i: i+1 for i in range(m)}
-    # pivots = Pivots({i+1: program.n_vars+i for i in range(m)})
 
-    print("pivots", pivots)
     aux_program = LinearProgram(A, b, c, pivots)
     for j in range(program.n_vars, program.n_vars+m):
-        print("zero out")
-        print(aux_program.M)
         zero_out_cj(aux_program, j)
-    print("final")
-    print(aux_program.M)
     return aux_program
 
 

@@ -6,23 +6,11 @@ from pivotal.simplex import LinearProgram as LP
 from pivotal.simplex import canonicalize, solve
 
 
-class Unbounded(Exception):
+class Expression:
     pass
 
 
-class Infeasible(Exception):
-    pass
-
-
-class InvalidConstraint(Exception):
-    pass
-
-
-class IncompatibleAbs(Exception):
-    pass
-
-
-class Abs:
+class Abs(Expression):
     def __init__(self, arg, sign=1):
         self.arg = arg
         self.sign = sign
@@ -95,13 +83,16 @@ class Comparable:
         return Lte(self, other)
 
 
-class Variable(Comparable):
+class Variable(Expression, Comparable):
     id_iter = itertools.count()
 
-    def __init__(self, name=None, coeff=1, lb=0, ub=0):
+    def __init__(self, name: str | None = None, coeff=1.0, lb=0, ub=0):
         if name is None:
             id = next(self.id_iter)
             self.name = f"_{id}"
+        elif name.startswith("_"):
+            raise TypeError("Variables starting with an underscore are reserved for slack"
+                            " and auxiliary variables used by the solver.")
         else:
             self.name = name
         self.coeff = coeff
@@ -189,11 +180,11 @@ def simplify(expr):
             return {expr.name: expr}, 0
         case Sum(elts=elts):
             return simplify_sum(elts)
-        case Comparison():
+        case Constraint():
             return expr.normalize()
 
 
-class Sum(Comparable):
+class Sum(Expression, Comparable):
     def __init__(self, *elts):
         self.elts = elts
 
@@ -250,7 +241,7 @@ class Sum(Comparable):
         return f"{elts}"
 
 
-class Comparison:
+class Constraint:
     def __init__(self, left, right):
         self.left = left
         self.right = right
@@ -270,17 +261,17 @@ class Comparison:
         return variables, c
 
 
-class Eq(Comparison):
+class Eq(Constraint):
     def __str__(self):
         return f"{self.left} = {self.right}"
 
 
-class Gte(Comparison):
+class Gte(Constraint):
     def __str__(self):
         return f"{self.left} >= {self.right}"
 
 
-class Lte(Comparison):
+class Lte(Constraint):
     def __str__(self):
         return f"{self.left} <= {self.right}"
 
@@ -302,24 +293,25 @@ class LinearProgram:
         self.constraints = constraints
 
     def validate(self):
-        # check for nesting
-        
-        for elt in self.objective:
-            if not isinstance(elt, Abs):
-                continue
-            if self.type == LinearProgram.MIN and elt.sign == -1:
-                raise Exception("Cannot minimize a negative absolute value")
-            if self.type == LinearProgram.MAX and elt.sign == 1:
-                raise Exception("Cannot maximize a positive absolute value")
+        ...
+        #TODO: check for nesting
 
-        for constraint in self.constraints:
-            for elt in self.objective:
-                if not isinstance(elt, Abs):
-                    continue
-                if self.type == LinearProgram.MIN and elt.sign == -1:
-                    raise Exception("Cannot minimize a negative absolute value")
-                if self.type == LinearProgram.MAX and elt.sign == 1:
-                    raise Exception("Cannot maximize a positive absolute value")
+        # for elt in self.objective:
+        #     if not isinstance(elt, Abs):
+        #         continue
+        #     if self.type == LinearProgram.MIN and elt.sign == -1:
+        #         raise Exception("Cannot minimize a negative absolute value")
+        #     if self.type == LinearProgram.MAX and elt.sign == 1:
+        #         raise Exception("Cannot maximize a positive absolute value")
+
+        # for constraint in self.constraints:
+        #     for elt in self.objective:
+        #         if not isinstance(elt, Abs):
+        #             continue
+        #         if self.type == LinearProgram.MIN and elt.sign == -1:
+        #             raise Exception("Cannot minimize a negative absolute value")
+        #         if self.type == LinearProgram.MAX and elt.sign == 1:
+        #             raise Exception("Cannot maximize a positive absolute value")
 
     def as_matrix(self):
         variables = sorted(list(self._get_variables()))
@@ -379,9 +371,9 @@ class LinearProgram:
         return f"{self.type} {self.objective}\ns.t.\n{constraints}"
 
 
-def minimize(objective, constraints):
+def minimize(objective: Expression, constraints: list[Constraint]) -> tuple[float, dict[str, float]]:
     return LinearProgram.minimize(objective).such_that(*constraints).optimize()
 
 
-def maximize(objective, constraints):
+def maximize(objective: Expression, constraints: list[Constraint]) -> tuple[float, dict[str, float]]:
     return LinearProgram.maximize(objective).such_that(*constraints).optimize()

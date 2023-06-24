@@ -1,5 +1,7 @@
 __pycache__
 *.egg-info
 
+.pytest_cache/
+
 .python-version
 venv/
