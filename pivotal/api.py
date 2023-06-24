@@ -90,9 +90,10 @@ class Variable(Expression, Comparable):
         if name is None:
             id = next(self.id_iter)
             self.name = f"_{id}"
-        elif name.startswith("_"):
-            raise TypeError("Variables starting with an underscore are reserved for slack"
-                            " and auxiliary variables used by the solver.")
+        # TODO:
+        # elif name.startswith("_"):
+            # raise TypeError("Variables starting with an underscore are reserved for slack"
+                            # " and auxiliary variables used by the solver.")
         else:
             self.name = name
         self.coeff = coeff
