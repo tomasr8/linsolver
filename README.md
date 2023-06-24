@@ -1,5 +1,5 @@
 <p align="center">
-    <img src="logo.svg">
+    <img src="https://raw.githubusercontent.com/tomasr8/pivotal/master/logo.svg">
 </p>
 
 # No fuss Linear Programming solver
