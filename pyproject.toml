@@ -7,13 +7,16 @@ description = "High-level Linear Programming solver using the Simplex algorithm"
 readme = "README.md"
 requires-python = ">=3.10"
 keywords = [
-    "Linear Programming",
-    "Linear Programming solver",
-    "LP solver",
+    "linear programming",
+    "linear programming solver",
+    "lp solver",
     "lp",
+    "solver",
     "linprog",
-    "Simplex",
-    "Simplex algorithm",
+    "numerical optimization",
+    "convex optimization",
+    "simplex",
+    "simplex algorithm",
 ]
 license = {file = "LICENSE"}
 classifiers = [
