@@ -127,3 +127,22 @@ except Infeasible:
 - (WIP) Support for absolute values
 - Setting tolerance & max number of iterations
 - MILP solver with branch & bound
+
+
+## Development
+
+### Setting up
+
+```python
+git clone https://github.com/tomasr8/pivotal.git
+cd pivotal
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
+```
+
+### Running tests
+
+```python
+pytest
+```
