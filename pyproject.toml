@@ -1,5 +1,5 @@
 [project]
-name = "pivotal"
+name = "pivotal-solver"
 authors = [
     {name = "Tomas Roun", email = "tomas.roun8@gmail.com"},
 ]

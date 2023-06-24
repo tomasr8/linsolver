@@ -37,7 +37,7 @@ Python >=3.10 is required.
 Install via pip:
 
 ```bash
-pip install pivotal
+pip install pivotal-solver
 ```
 
 ## API
