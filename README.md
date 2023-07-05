@@ -117,15 +117,19 @@ except Infeasible:
     print("No solution")
 ```
 
+### Iterations & Tolerance
+
+`minimize` and `maximize` take two keyword arguments `max_iterations` and `tolerance`. `max_iterations` (default `math.inf`) controls the maximum number of iterations of the second phase of the Simplex algorithm. If the maximum number of iterations is reached a potentially non-optimal solution is returned. `tolerance` (default `1e-6`) controls the precision of floating point comparisons, e.g. when comparing against zero. Instead of `x == 0.0`, the algorithm considers a value to be zero when it is within the given tolerance: `abs(x) <= tolerance`.
+
 ## Limitations
 
 - Currently, all variables are assumed to be positive
 
 ## TODO (Contributions welcome)
 
+- ✔️ Setting tolerance & max number of iterations
 - (WIP) Arbitrary variable bounds, e.g. `a <= x <= b`
 - (WIP) Support for absolute values
-- Setting tolerance & max number of iterations
 - MILP solver with branch & bound
 
 

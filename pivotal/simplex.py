@@ -73,10 +73,10 @@ class LinearProgram:
         return f"{self.M}\n{self.pivots}"
 
 
-def zero_out_cj(program, column):
+def zero_out_cj(program, column, *, tolerance):
     row = program.pivots.get(column=column)
     cj = program.c[column]
-    if cj == 0:
+    if is_zero(cj, tolerance):
         return
     program.M[0] -= cj*program.M[row]
 
@@ -91,18 +91,18 @@ def do_pivot(program, pivot):
         program.M[i] -= program.M[i, column]*program.M[row]
 
 
-def find_pivot(program):
+def find_pivot(program, *, tolerance):
     for j in range(program.n_vars):
         if program.pivots.has(column=j):
             continue
-        if program.c[j] < 0:
+        if program.c[j] < -tolerance:
             min_value = math.inf
             min_i = None
             for i in range(1, program.n_constraints + 1):
-                if program.M[i, j] == 0:
+                if is_zero(program.M[i, j], tolerance):
                     continue
                 frac = program.M[i, -1]/program.M[i, j]
-                if program.M[i, j] > 0 and frac < min_value:
+                if program.M[i, j] > tolerance and (frac-min_value) < -tolerance:
                     min_value = frac
                     min_i = i
             if min_i is not None:
@@ -120,29 +120,32 @@ def get_solution(program):
     return solution
 
 
-def run_simplex(program):
+def run_simplex(program, *, max_iterations=math.inf, tolerance=1e-6):
+    iterations = 0
     while (pivot := find_pivot(program)) is not None:
         old_pivot = program.pivots.get(row=pivot[0])
         do_pivot(program, pivot)
         program.pivots.delete(column=old_pivot)
         program.pivots.set(row=pivot[0], column=pivot[1])
-        zero_out_cj(program, pivot[1])
+        zero_out_cj(program, pivot[1], tolerance=tolerance)
 
-    if np.all(program.M[0, :-1] >= 0):
-        return
-    else:
+        iterations +=1
+        if iterations > max_iterations:
+            return
+
+    if np.any(program.A[0] < -tolerance):
         raise Unbounded("The program is unbounded, try adding more constraints.")
 
 
-def solve(program):
-    aux_program = aux_problem(program)
-    run_simplex(aux_program)
+def solve(program, *, max_iterations, tolerance):
+    aux_program = aux_problem(program, tolerance=tolerance)
+    run_simplex(aux_program, tolerance=tolerance)
 
-    if not is_zero(aux_program.value):
+    if not is_zero(aux_program.value, tolerance):
         raise Infeasible("The program is infeasible, try removing some constraints.")
 
     if any(j >= program.n_vars for j in aux_program.pivots.cr):
-        zeros = np.isclose(aux_program.A[:, :program.n_vars], 0)
+        zeros = is_zero(aux_program.A[:, :program.n_vars], tolerance)
         sel = np.all(zeros, axis=1)
         sel = np.concatenate(([False], sel))
 
@@ -163,7 +166,7 @@ def solve(program):
             for candidate_col in range(program.n_vars):
                 if candidate_col in aux_program.pivots.cr:
                     continue
-                if is_zero(aux_program.M[row, candidate_col]):
+                if is_zero(aux_program.M[row, candidate_col], tolerance):
                     continue
                 do_pivot(aux_program, (row, candidate_col))
                 aux_program.pivots.delete(column=col)
@@ -177,14 +180,14 @@ def solve(program):
     new_prog = LinearProgram(A, b, c, pivots)
 
     for column in pivots.cr:
-        if new_prog.c[column] != 0:
-            zero_out_cj(new_prog, column)
+        if not is_zero(new_prog.c[column], tolerance):
+            zero_out_cj(new_prog, column, tolerance=tolerance)
 
-    run_simplex(new_prog)
+    run_simplex(new_prog, max_iterations=max_iterations, tolerance=tolerance)
     return new_prog.value, get_solution(new_prog)
 
 
-def aux_problem(program):
+def aux_problem(program, *, tolerance):
     m = program.n_constraints
     A = np.copy(np.c_[program.A, np.eye(m)])
     b = np.copy(program.b)
@@ -193,19 +196,12 @@ def aux_problem(program):
 
     aux_program = LinearProgram(A, b, c, pivots)
     for j in range(program.n_vars, program.n_vars+m):
-        zero_out_cj(aux_program, j)
+        zero_out_cj(aux_program, j, tolerance=tolerance)
     return aux_program
 
 
-TOL = 1e-5
-
-
-def equal(a, b, tol=TOL):
-    return abs(a-b) <= tol
-
-
-def is_zero(v):
-    return equal(v, 0)
+def is_zero(v, tol):
+    return np.isclose(v, 0, rtol=0, atol=tol)
 
 
 def canonicalize(type, A, b, c, constraint_types):

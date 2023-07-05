@@ -1,4 +1,5 @@
 import itertools
+import math
 
 import numpy as np
 
@@ -359,10 +360,10 @@ class LinearProgram:
         self.constraints = constraints
         return self
 
-    def optimize(self):
+    def optimize(self, max_iterations, tolerance):
         all_vars = sorted(list(self._get_variables()))
         A, b, c = canonicalize(*self.as_matrix())
-        value, variables = solve(LP(A, b, c, {}))
+        value, variables = solve(LP(A, b, c, {}), max_iterations=max_iterations, tolerance=tolerance)
         value = value if self.type == LinearProgram.MIN else -value
         variables = variables[:len(all_vars)]
         return value, ({all_vars[i]: v for i, v in enumerate(variables)})
@@ -372,9 +373,9 @@ class LinearProgram:
         return f"{self.type} {self.objective}\ns.t.\n{constraints}"
 
 
-def minimize(objective: Expression, constraints: list[Constraint]) -> tuple[float, dict[str, float]]:
-    return LinearProgram.minimize(objective).such_that(*constraints).optimize()
+def minimize(objective: Expression, constraints: list[Constraint], *, max_iterations=math.inf, tolerance=1e-6) -> tuple[float, dict[str, float]]:
+    return LinearProgram.minimize(objective).such_that(*constraints).optimize(max_iterations=max_iterations, tolerance=tolerance)
 
 
-def maximize(objective: Expression, constraints: list[Constraint]) -> tuple[float, dict[str, float]]:
-    return LinearProgram.maximize(objective).such_that(*constraints).optimize()
+def maximize(objective: Expression, constraints: list[Constraint], *, max_iterations=math.inf, tolerance=1e-6) -> tuple[float, dict[str, float]]:
+    return LinearProgram.maximize(objective).such_that(*constraints).optimize(max_iterations=max_iterations, tolerance=tolerance)
