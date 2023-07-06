@@ -1,4 +1,4 @@
-from pivotal.api import Variable, minimize, maximize
+from pivotal.api import Variable, maximize, minimize
 from pivotal.errors import Infeasible, Unbounded
 
 

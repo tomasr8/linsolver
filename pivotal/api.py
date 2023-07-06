@@ -91,10 +91,7 @@ class Variable(Expression, Comparable):
         if name is None:
             id = next(self.id_iter)
             self.name = f"_{id}"
-        # TODO:
-        # elif name.startswith("_"):
-            # raise TypeError("Variables starting with an underscore are reserved for slack"
-                            # " and auxiliary variables used by the solver.")
+        # TODO: underscored variable names
         else:
             self.name = name
         self.coeff = coeff
@@ -296,7 +293,7 @@ class LinearProgram:
 
     def validate(self):
         ...
-        #TODO: check for nesting
+        # TODO: check for nesting
 
         # for elt in self.objective:
         #     if not isinstance(elt, Abs):
@@ -373,9 +370,13 @@ class LinearProgram:
         return f"{self.type} {self.objective}\ns.t.\n{constraints}"
 
 
-def minimize(objective: Expression, constraints: list[Constraint], *, max_iterations=math.inf, tolerance=1e-6) -> tuple[float, dict[str, float]]:
-    return LinearProgram.minimize(objective).such_that(*constraints).optimize(max_iterations=max_iterations, tolerance=tolerance)
+def minimize(objective: Expression, constraints: list[Constraint],
+             *, max_iterations=math.inf, tolerance=1e-6) -> tuple[float, dict[str, float]]:
+    return LinearProgram.minimize(objective).such_that(*constraints).optimize(max_iterations=max_iterations,
+                                                                              tolerance=tolerance)
 
 
-def maximize(objective: Expression, constraints: list[Constraint], *, max_iterations=math.inf, tolerance=1e-6) -> tuple[float, dict[str, float]]:
-    return LinearProgram.maximize(objective).such_that(*constraints).optimize(max_iterations=max_iterations, tolerance=tolerance)
+def maximize(objective: Expression, constraints: list[Constraint],
+             *, max_iterations=math.inf, tolerance=1e-6) -> tuple[float, dict[str, float]]:
+    return LinearProgram.maximize(objective).such_that(*constraints).optimize(max_iterations=max_iterations,
+                                                                              tolerance=tolerance)
