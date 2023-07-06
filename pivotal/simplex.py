@@ -36,6 +36,9 @@ class Pivots:
             del self.rc[row]
             del self.cr[column]
 
+    def __str__(self):
+        return str(self.rc)
+
 
 class LinearProgram:
     def __init__(self, A, b, c, pivots: dict[int, int] | Pivots):
@@ -122,18 +125,18 @@ def get_solution(program):
 
 def run_simplex(program, *, max_iterations=math.inf, tolerance=1e-6):
     iterations = 0
-    while (pivot := find_pivot(program)) is not None:
+    while (pivot := find_pivot(program, tolerance=tolerance)) is not None:
         old_pivot = program.pivots.get(row=pivot[0])
         do_pivot(program, pivot)
         program.pivots.delete(column=old_pivot)
         program.pivots.set(row=pivot[0], column=pivot[1])
         zero_out_cj(program, pivot[1], tolerance=tolerance)
 
-        iterations +=1
+        iterations += 1
         if iterations > max_iterations:
             return
 
-    if np.any(program.A[0] < -tolerance):
+    if np.any(program.c < -tolerance):
         raise Unbounded("The program is unbounded, try adding more constraints.")
 
 

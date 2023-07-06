@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 from numpy.testing import assert_allclose
 
@@ -124,7 +126,7 @@ def test_mixing_task():
         b + 3*m + 6*z >= 8,
     )
 
-    assert_solution_almost_equal((160, [3.2, 1.6, 0]), program.optimize())
+    assert_solution_almost_equal((160, [3.2, 1.6, 0]), program.optimize(max_iterations=math.inf, tolerance=1e-6))
 
 
 def test_assignment_problem():
@@ -150,7 +152,8 @@ def test_assignment_problem():
         sum(X[i][2] for i in range(3)) == 1,
     )
 
-    assert_solution_almost_equal((4, [1, 0, 0, 0, 0, 1, 0, 1, 0]), program.optimize())
+    assert_solution_almost_equal((4, [1, 0, 0, 0, 0, 1, 0, 1, 0]),
+                                 program.optimize(max_iterations=math.inf, tolerance=1e-6))
 
 
 def test_redundant_constraints():
@@ -165,7 +168,7 @@ def test_redundant_constraints():
         X[0] + X[1] + 2*X[2] == 22,
     )
 
-    assert_solution_almost_equal((98/3, [34/3, 32/3, 0]), program.optimize())
+    assert_solution_almost_equal((98/3, [34/3, 32/3, 0]), program.optimize(max_iterations=math.inf, tolerance=1e-6))
 
 
 def test_degenerate_solution():
@@ -180,4 +183,4 @@ def test_degenerate_solution():
         0.5*X[0] - 2*X[1] + X[2] == 5,
     )
 
-    assert_solution_almost_equal((15, [0, 0, 5, 2]), program.optimize())
+    assert_solution_almost_equal((15, [0, 0, 5, 2]), program.optimize(max_iterations=math.inf, tolerance=1e-6))

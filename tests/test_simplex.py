@@ -1,9 +1,10 @@
+import math
+
 import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from pivotal.simplex import (TOL, LinearProgram, canonicalize, do_pivot,
-                             find_pivot, get_solution, solve, zero_out_cj)
+from pivotal.simplex import LinearProgram, canonicalize, do_pivot, find_pivot, get_solution, solve, zero_out_cj
 
 
 def test_zero_out_cj_1():
@@ -12,9 +13,9 @@ def test_zero_out_cj_1():
     c = np.zeros(2)
     program = LinearProgram(A, b, c, {0: 1, 1: 2})
     M = np.copy(program.M)
-    zero_out_cj(program, 0)
+    zero_out_cj(program, 0, tolerance=1e-6)
     assert_array_equal(M, program.M)
-    zero_out_cj(program, 1)
+    zero_out_cj(program, 1, tolerance=1e-6)
     assert_array_equal(M, program.M)
 
 
@@ -23,13 +24,13 @@ def test_zero_out_cj_2():
     b = np.ones(2)
     c = 2*np.ones(2)
     program = LinearProgram(A, b, c, {0: 1, 1: 2})
-    zero_out_cj(program, 0)
+    zero_out_cj(program, 0, tolerance=1e-6)
     assert_array_equal(program.M, np.array([
         [0, 2, -2],
         [1, 0, 1],
         [0, 1, 1],
     ]))
-    zero_out_cj(program, 1)
+    zero_out_cj(program, 1, tolerance=1e-6)
     assert_array_equal(program.M, np.array([
         [0, 0, -4],
         [1, 0, 1],
@@ -79,7 +80,7 @@ def test_find_pivot_no_pivot_cj_positive():
     b = [3, 5]
     c = [1, 1, 1]
     program = LinearProgram(A, b, c, {})
-    pivot = find_pivot(program)
+    pivot = find_pivot(program, tolerance=1e-6)
     assert pivot is None
 
 
@@ -91,7 +92,7 @@ def test_find_pivot_no_pivot_negative_column():
     b = [3, 5]
     c = [1, 1, -3]
     program = LinearProgram(A, b, c, {})
-    pivot = find_pivot(program)
+    pivot = find_pivot(program, tolerance=1e-6)
     assert pivot is None
 
 
@@ -103,7 +104,7 @@ def test_find_pivot():
     b = [3, 5]
     c = [1, 1, -2]
     program = LinearProgram(A, b, c, {0: 1, 1: 2})
-    pivot = find_pivot(program)
+    pivot = find_pivot(program, tolerance=1e-6)
     assert_array_equal(pivot, [2, 2])
 
 
@@ -186,11 +187,11 @@ def test_program_1():
     b = np.array([6, 5], dtype=float)
     c = np.array([1, 2], dtype=float)
 
-    value, X = solve(LinearProgram(A, b, c, {}))
+    value, X = solve(LinearProgram(A, b, c, {}), max_iterations=math.inf, tolerance=1e-6)
     X_true = [0.81818182, 1.72727273]
-    assert value == pytest.approx(4.27272727, TOL)
+    assert value == pytest.approx(4.27272727)
     for x, xt in zip(X, X_true):
-        assert x == pytest.approx(xt, TOL)
+        assert x == pytest.approx(xt)
 
 
 def test_program_2():
@@ -202,8 +203,8 @@ def test_program_2():
     b = np.array([10, 15], dtype=float)
     c = np.array([-20, -30, -40], dtype=float)
 
-    value, X = solve(LinearProgram(A, b, c, {}))
+    value, X = solve(LinearProgram(A, b, c, {}), max_iterations=math.inf, tolerance=1e-6)
     X_true = [1, 0, 7]
-    assert value == pytest.approx(-300, TOL)
+    assert value == pytest.approx(-300)
     for x, xt in zip(X, X_true):
-        assert x == pytest.approx(xt, TOL)
+        assert x == pytest.approx(xt)
