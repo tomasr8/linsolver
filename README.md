@@ -64,7 +64,7 @@ sum(X)
 ```
 
 Note that variables are considered equal if they have the same name, so
-for examples this expression:
+for example this expression:
 
 ```python
 Variable("x") + 2 + Variable("x")
@@ -72,7 +72,7 @@ Variable("x") + 2 + Variable("x")
 
 will be treated as simply `2*x+2`.
 
-The first argument to `minimize` and `maximize` is the objective function which must be either a single variable or a linear combination as in the example above.
+The first argument to `minimize` and `maximize` is the objective function which must be either a single variable or a linear combination as in the examples above.
 
 ### Constraints
 
@@ -97,7 +97,7 @@ There is no need to convert your constraints to the canonical form which uses on
 
 The return value of `minimize` and `maximize` is a 2-tuple containing the value of the objective function and a dictionary of variables and their values.
 
-The functions may raise `pivotal.Infeasible` if the program is over-constrained (no solution exists) or `pivotal.Unbounded` if the program is under-constrained (the objective can be made arbitrarily small).
+The functions may raise `pivotal.Infeasible` if the program is over-constrained (no solution exists) or `pivotal.Unbounded` if the program is under-constrained (the objective can be made arbitrarily small):
 
 ```python
 from pivotal import minimize, maximize, Variable, Infeasible
@@ -123,13 +123,15 @@ except Infeasible:
 
 ## Limitations
 
-- Currently, all variables are assumed to be positive
+- Currently, all variables are assumed to be nonnegative i.e. x >= 0.
 
 ## TODO (Contributions welcome)
 
 - ✔️ Setting tolerance & max number of iterations
 - (WIP) Arbitrary variable bounds, e.g. `a <= x <= b`
-- (WIP) Support for absolute values
+- (WIP) Support for absolute values using Python's `abs()`
+    - in the objective function
+    - in constraints
 - MILP solver with branch & bound
 
 
