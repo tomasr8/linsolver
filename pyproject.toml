@@ -42,6 +42,7 @@ line_length = 120
 lines_after_imports = 2
 
 [tool.ruff.lint]
+select = ["ALL"]
 ignore = [
     "D",
     "ANN002",
