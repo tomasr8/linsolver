@@ -1,13 +1,21 @@
 import math
 import warnings
+from collections.abc import Callable
 from enum import Enum, auto
-from typing import Literal
+from typing import Literal, TypeVar
 
 import numpy as np
 
 from pivotal.errors import Infeasible, Unbounded
-from pivotal.expressions import (Constraint, Equal, Expression, GreaterOrEqual, LessOrEqual, get_variable_coeffs,
-                                 get_variable_names)
+from pivotal.expressions import (
+    Constraint,
+    Equal,
+    Expression,
+    GreaterOrEqual,
+    LessOrEqual,
+    get_variable_coeffs,
+    get_variable_names,
+)
 
 
 class ProgramType(Enum):
@@ -15,8 +23,11 @@ class ProgramType(Enum):
     MAX = auto()
 
 
-def suppress_divide_by_zero_warning(fn) -> None:
-    def _fn_suppressed(*args, **kwargs):
+_T = TypeVar("_T")
+
+
+def suppress_divide_by_zero_warning(fn: Callable[..., _T]) -> None:
+    def _fn_suppressed(*args, **kwargs) -> _T:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", RuntimeWarning)
             return fn(*args, **kwargs)
@@ -71,7 +82,7 @@ class Pivots:
 
 
 class Tableau:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self, A: np.ndarray, b: np.ndarray, c: np.ndarray, pivots: Pivots | None = None, *, tolerance: float = 1e-6
     ) -> None:
         self.M = np.block([[np.atleast_2d(c), np.atleast_2d(0)], [A, np.atleast_2d(b).T]])

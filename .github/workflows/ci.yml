@@ -25,9 +25,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: python -m pip install -e .[dev]
-      - name: Run ruff
-        run: ruff check --verbose
-      - name: Run linters
+      - name: Run linters & formatters
         run: pre-commit run --all-files
       - name: Test with pytest
         run: pytest

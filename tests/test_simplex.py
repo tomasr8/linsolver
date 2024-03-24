@@ -189,7 +189,7 @@ def test_program_1():
     value, X = _solve(Tableau(A, b, c, Pivots({})), max_iterations=math.inf, tolerance=1e-6)
     X_true = [0.81818182, 1.72727273]
     assert value == pytest.approx(4.27272727)
-    for x, xt in zip(X, X_true):
+    for x, xt in zip(X, X_true, strict=True):
         assert x == pytest.approx(xt)
 
 
@@ -208,5 +208,5 @@ def test_program_2():
     value, X = _solve(Tableau(A, b, c, Pivots({})), max_iterations=math.inf, tolerance=1e-6)
     X_true = [1, 0, 7]
     assert value == pytest.approx(-300)
-    for x, xt in zip(X, X_true):
+    for x, xt in zip(X, X_true, strict=True):
         assert x == pytest.approx(xt)

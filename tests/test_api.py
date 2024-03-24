@@ -8,7 +8,7 @@ from pivotal.expressions import Variable
 def assert_solution_almost_equal(expected, actual):
     __traceback_hide__ = True  # noqa: F841
     assert np.isclose(expected[0], actual[0])
-    assert_allclose(expected[1], [actual[1][name] for name in sorted(list(actual[1].keys()))], atol=1e-8)
+    assert_allclose(expected[1], [actual[1][name] for name in sorted(actual[1].keys())], atol=1e-8)
 
 
 def assert_equal(a, b):
@@ -19,7 +19,7 @@ def assert_equal(a, b):
 def assert_array_equal(a, b):
     __traceback_hide__ = True  # noqa: F841
     assert len(a) == len(b)
-    for x, y in zip(a, b):
+    for x, y in zip(a, b, strict=True):
         assert_equal(x, y)
 
 

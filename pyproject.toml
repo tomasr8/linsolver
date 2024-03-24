@@ -31,15 +31,11 @@ dependencies = ["numpy"]
 dynamic = ["version"]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff", "isort", "pre-commit"]
+dev = ["pytest", "ruff", "pre-commit"]
 
 [project.urls]
 Homepage = "https://github.com/tomasr8/pivotal"
 Github = "https://github.com/tomasr8/pivotal"
-
-[tool.isort]
-line_length = 120
-lines_after_imports = 2
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -58,8 +54,14 @@ ignore = [
     "S101",
 ]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["ANN001", "ANN201", "PLR2004"]
+
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.isort]
+lines-after-imports = 2
 
 [tool.setuptools]
 packages = ["pivotal"]
