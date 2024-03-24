@@ -3,7 +3,7 @@ name = "pivotal-solver"
 authors = [{ name = "Tomas Roun", email = "tomas.roun8@gmail.com" }]
 description = "High-level Linear Programming solver using the Simplex algorithm"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 keywords = [
     "linear programming",
     "linear programming solver",
